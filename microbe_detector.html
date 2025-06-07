@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microorganism Detector & Image Identifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+        }
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .video-container, .image-preview-container {
+            border: 2px dashed #cbd5e1; /* Tailwind gray-300 */
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f9fafb; /* Tailwind gray-50 */
+        }
+        video, #imagePreview {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: 400px; /* Limit height for consistency */
+            object-fit: contain; /* Show entire image/video frame */
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            cursor: pointer;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #2563eb; /* Tailwind blue-600 */
+        }
+        .btn-secondary {
+            background-color: #6b7280; /* Tailwind gray-500 */
+            color: white;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #4b5563; /* Tailwind gray-600 */
+        }
+        .btn-tertiary {
+            background-color: #10b981; /* Tailwind emerald-500 */
+            color: white;
+        }
+        .btn-tertiary:hover:not(:disabled) {
+            background-color: #059669; /* Tailwind emerald-600 */
+        }
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+        .file-input-label {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: #10b981; /* Tailwind emerald-500 */
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .file-input-label:hover {
+            background-color: #059669; /* Tailwind emerald-600 */
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3b82f6; /* Blue */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .results-box {
+            background-color: #eef2ff; /* Tailwind indigo-50 */
+            border: 1px solid #c7d2fe; /* Tailwind indigo-200 */
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+            min-height: 50px;
+        }
+        .fun-facts-box {
+            background-color: #f0fdf4; /* Tailwind green-50 */
+            border: 1px solid #bbf7d0; /* Tailwind green-200 */
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            min-height: 50px;
+        }
+        .error-message {
+            color: #ef4444; /* Tailwind red-500 */
+            background-color: #fee2e2; /* Tailwind red-100 */
+            border: 1px solid #fca5a5; /* Tailwind red-300 */
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 6px 6px 0 0;
+            font-weight: 500;
+            cursor: pointer;
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+            color: #4b5563; /* Tailwind gray-600 */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            border-bottom: none;
+        }
+        .tab-button.active {
+            background-color: white;
+            color: #3b82f6; /* Tailwind blue-500 */
+            border-bottom: 1px solid white;
+            position: relative;
+            top: 1px;
+        }
+        .tab-content {
+            display: none;
+            padding-top: 1rem;
+            border-top: 1px solid #d1d5db; /* Tailwind gray-300 */
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+    <div class="container">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-700">Microorganism & Image Identifier</h1>
+            <p class="text-md text-gray-500 mt-2">Use your camera or upload an image to identify its contents. Then, learn more about what you find!</p>
+        </header>
+
+        <div class="mb-6">
+            <button id="cameraTabButton" class="tab-button active">Use Camera</button>
+            <button id="uploadTabButton" class="tab-button">Upload Image</button>
+        </div>
+
+        <div id="cameraTabContent" class="tab-content active">
+            <div class="video-container mb-4">
+                <video id="cameraFeed" autoplay playsinline muted></video>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+                <button id="startCameraButton" class="btn btn-primary w-full sm:w-auto">Start Camera</button>
+                <button id="captureImageButton" class="btn btn-secondary w-full sm:w-auto" disabled>Capture & Analyze Frame</button>
+                <button id="stopCameraButton" class="btn btn-secondary w-full sm:w-auto" disabled>Stop Camera</button>
+            </div>
+        </div>
+
+        <div id="uploadTabContent" class="tab-content">
+            <div class="image-preview-container mb-4 h-64 flex items-center justify-center">
+                <img id="imagePreview" src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Preview+Image" alt="Image Preview">
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+                <label for="imageUpload" class="file-input-label w-full sm:w-auto text-center">Choose Image</label>
+                <input type="file" id="imageUpload" accept="image/*">
+                <button id="analyzeUploadedImageButton" class="btn btn-primary w-full sm:w-auto" disabled>Analyze Uploaded Image</button>
+            </div>
+        </div>
+        
+        <canvas id="imageCanvas" style="display:none;"></canvas>
+
+        <div id="loadingIndicator" class="loader" style="display: none;"></div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        
+        <div class="results-box">
+            <h2 class="text-xl font-semibold text-gray-700 mb-2">Analysis Result:</h2>
+            <p id="analysisResult" class="text-gray-600">Results will appear here...</p>
+        </div>
+
+        <div id="funFactsContainer" class="mt-6" style="display: none;">
+            <button id="getFunFactsButton" class="btn btn-tertiary w-full sm:w-auto mb-4">✨ Tell Me More About It!</button>
+            <div id="funFactsLoadingIndicator" class="loader" style="display: none;"></div>
+            <div id="funFactsErrorMessage" class="error-message" style="display: none;"></div>
+            <div class="fun-facts-box" style="display: none;">
+                <h3 class="text-lg font-semibold text-green-700 mb-2">Interesting Facts:</h3>
+                <p id="funFactsResult" class="text-green-600"></p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // DOM Elements
+        const cameraTabButton = document.getElementById('cameraTabButton');
+        const uploadTabButton = document.getElementById('uploadTabButton');
+        const cameraTabContent = document.getElementById('cameraTabContent');
+        const uploadTabContent = document.getElementById('uploadTabContent');
+
+        const cameraFeed = document.getElementById('cameraFeed');
+        const startCameraButton = document.getElementById('startCameraButton');
+        const captureImageButton = document.getElementById('captureImageButton');
+        const stopCameraButton = document.getElementById('stopCameraButton');
+        
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const analyzeUploadedImageButton = document.getElementById('analyzeUploadedImageButton');
+        
+        const imageCanvas = document.getElementById('imageCanvas');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const analysisResult = document.getElementById('analysisResult');
+        const errorMessage = document.getElementById('errorMessage');
+
+        const funFactsContainer = document.getElementById('funFactsContainer');
+        const getFunFactsButton = document.getElementById('getFunFactsButton');
+        const funFactsLoadingIndicator = document.getElementById('funFactsLoadingIndicator');
+        const funFactsResult = document.getElementById('funFactsResult');
+        const funFactsErrorMessage = document.getElementById('funFactsErrorMessage');
+        const funFactsBox = document.querySelector('.fun-facts-box');
+
+
+        let stream = null; // To store the camera stream
+        let lastAnalysisSubject = ""; // To store the subject of the last successful analysis
+
+        // --- Tab Functionality ---
+        cameraTabButton.addEventListener('click', () => {
+            cameraTabButton.classList.add('active');
+            uploadTabButton.classList.remove('active');
+            cameraTabContent.classList.add('active');
+            uploadTabContent.classList.remove('active');
+            clearAllResults(); 
+        });
+
+        uploadTabButton.addEventListener('click', () => {
+            uploadTabButton.classList.add('active');
+            cameraTabButton.classList.remove('active');
+            uploadTabContent.classList.add('active');
+            cameraTabContent.classList.remove('active');
+            if (stream) stopCamera(); 
+            clearAllResults();
+        });
+
+
+        // --- Camera Functionality ---
+        startCameraButton.addEventListener('click', async () => {
+            clearAllResults();
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    cameraFeed.srcObject = stream;
+                    cameraFeed.style.display = 'block'; 
+                    imagePreview.style.display = 'none'; 
+                    
+                    startCameraButton.disabled = true;
+                    captureImageButton.disabled = false;
+                    stopCameraButton.disabled = false;
+                    errorMessage.style.display = 'none';
+                } else {
+                    showError("Camera API not supported by your browser.");
+                }
+            } catch (error) {
+                console.error("Error accessing camera:", error);
+                showError(`Could not access camera: ${error.message}. Please ensure permissions are granted.`);
+                if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+                     showError("Camera permission denied. Please enable camera access in your browser settings.");
+                } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError"){
+                     showError("No camera found. Please ensure a camera is connected and enabled.");
+                }
+                startCameraButton.disabled = false;
+                captureImageButton.disabled = true;
+                stopCameraButton.disabled = true;
+            }
+        });
+
+        captureImageButton.addEventListener('click', () => {
+            if (!stream) {
+                showError("Camera not started.");
+                return;
+            }
+            clearFunFacts(); // Clear previous fun facts before new analysis
+            const context = imageCanvas.getContext('2d');
+            imageCanvas.width = cameraFeed.videoWidth;
+            imageCanvas.height = cameraFeed.videoHeight;
+            context.drawImage(cameraFeed, 0, 0, imageCanvas.width, imageCanvas.height);
+            
+            const capturedImageDataUrl = imageCanvas.toDataURL('image/png');
+            imagePreview.src = capturedImageDataUrl;
+            imagePreview.style.display = 'block'; 
+            cameraFeed.style.display = 'none'; 
+            
+            const base64ImageData = capturedImageDataUrl.split(',')[1];
+            analyzeImage(base64ImageData);
+        });
+
+        stopCameraButton.addEventListener('click', stopCamera);
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                cameraFeed.srcObject = null;
+                cameraFeed.style.display = 'none'; 
+                imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Camera+Off';
+                imagePreview.style.display = 'block';
+
+                startCameraButton.disabled = false;
+                captureImageButton.disabled = true;
+                stopCameraButton.disabled = true;
+            }
+        }
+
+        // --- Image Upload Functionality ---
+        imageUpload.addEventListener('change', (event) => {
+            clearAllResults();
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block'; 
+                    cameraFeed.style.display = 'none'; 
+                    analyzeUploadedImageButton.disabled = false;
+                    errorMessage.style.display = 'none';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Preview+Image';
+                analyzeUploadedImageButton.disabled = true;
+            }
+        });
+
+        analyzeUploadedImageButton.addEventListener('click', () => {
+            if (imagePreview.src && imagePreview.src !== 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Preview+Image' && !imagePreview.src.startsWith('https://placehold.co/')) {
+                clearFunFacts(); // Clear previous fun facts
+                const base64ImageData = imagePreview.src.split(',')[1];
+                analyzeImage(base64ImageData);
+            } else {
+                showError("Please upload an image first.");
+            }
+        });
+
+        // --- Image Analysis (Gemini API Call) ---
+        async function analyzeImage(base64ImageData) {
+            loadingIndicator.style.display = 'block';
+            analysisResult.textContent = 'Analyzing...';
+            errorMessage.style.display = 'none';
+            funFactsContainer.style.display = 'none'; // Hide fun facts section during new analysis
+            getFunFactsButton.disabled = true;
+
+
+            captureImageButton.disabled = true;
+            analyzeUploadedImageButton.disabled = true;
+
+            const prompt = "Analyze this image. Are there any microorganisms visible? If so, try to identify them or describe their type. If no microorganisms are apparent, describe the main subject of the image. Provide a concise description.";
+            
+            const payload = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: "image/png", 
+                                    data: base64ImageData
+                                }
+                            }
+                        ]
+                    }
+                ],
+            };
+
+            const apiKey = "AIzaSyDwLiuDl6VJvmpWx0Vhzb9AkjmRrO2H6FM"; // API key inserted here
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("API Error Response:", errorData);
+                    let errorMsg = `Error analyzing image: ${response.status} ${response.statusText}`;
+                    if (errorData.error && errorData.error.message) {
+                        errorMsg += ` - ${errorData.error.message}`;
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    analysisResult.textContent = text;
+                    lastAnalysisSubject = text; // Store for fun facts
+                    funFactsContainer.style.display = 'block'; // Show fun facts button
+                    getFunFactsButton.disabled = false;
+                    funFactsBox.style.display = 'none'; // Hide old facts box
+                    funFactsResult.textContent = ''; // Clear old facts text
+                } else if (result.promptFeedback && result.promptFeedback.blockReason) {
+                    analysisResult.textContent = `Analysis blocked: ${result.promptFeedback.blockReason}. This might be due to safety settings or the image content.`;
+                    lastAnalysisSubject = ""; // No valid subject
+                }
+                else {
+                    analysisResult.textContent = "Could not retrieve a description from the AI. The response format was unexpected.";
+                    lastAnalysisSubject = ""; // No valid subject
+                    console.error("Unexpected API response structure:", result);
+                }
+
+            } catch (error) {
+                console.error("Error during API call:", error);
+                showError(`Failed to analyze image. ${error.message || 'Please check your network connection and try again.'}`);
+                analysisResult.textContent = 'Analysis failed.';
+                lastAnalysisSubject = ""; // No valid subject
+            } finally {
+                loadingIndicator.style.display = 'none';
+                if (stream) { 
+                    captureImageButton.disabled = false;
+                    cameraFeed.style.display = 'block';
+                    if(cameraTabContent.classList.contains('active')) { 
+                        imagePreview.style.display = 'none';
+                    }
+                } else { 
+                    analyzeUploadedImageButton.disabled = !(!imagePreview.src || imagePreview.src === 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Preview+Image' || imagePreview.src.startsWith('https://placehold.co/'));
+                }
+            }
+        }
+
+        // --- Fun Facts Functionality (Gemini API Call) ---
+        getFunFactsButton.addEventListener('click', async () => {
+            if (!lastAnalysisSubject || lastAnalysisSubject === "Analysis failed." || lastAnalysisSubject.startsWith("Analysis blocked:")) {
+                showFunFactsError("Cannot get fun facts without a successful initial analysis.");
+                return;
+            }
+
+            funFactsLoadingIndicator.style.display = 'block';
+            funFactsResult.textContent = '';
+            funFactsErrorMessage.style.display = 'none';
+            funFactsBox.style.display = 'none';
+            getFunFactsButton.disabled = true;
+
+            const prompt = `Based on the following description: "${lastAnalysisSubject}", provide 2-3 interesting fun facts or a brief educational summary about the main subject mentioned. Keep it concise and engaging. If the description is too vague, an error message, or doesn't clearly state a subject, respond with "I can't provide specific facts based on the current analysis."`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            };
+            const apiKey = "AIzaSyDwLiuDl6VJvmpWx0Vhzb9AkjmRrO2H6FM"; // API key inserted here
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error ${response.status}: ${errorData.error?.message || response.statusText}`);
+                }
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    funFactsResult.innerHTML = text.replace(/\n/g, '<br>'); // Preserve line breaks
+                    funFactsBox.style.display = 'block';
+                } else if (result.promptFeedback && result.promptFeedback.blockReason) {
+                    showFunFactsError(`Fun facts generation blocked: ${result.promptFeedback.blockReason}.`);
+                }
+                else {
+                    showFunFactsError("Could not retrieve fun facts. The response format was unexpected.");
+                    console.error("Unexpected Fun Facts API response structure:", result);
+                }
+            } catch (error) {
+                console.error("Error fetching fun facts:", error);
+                showFunFactsError(`Failed to fetch fun facts. ${error.message || 'Please try again.'}`);
+            } finally {
+                funFactsLoadingIndicator.style.display = 'none';
+                getFunFactsButton.disabled = false;
+            }
+        });
+
+
+        // --- Utility Functions ---
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            funFactsContainer.style.display = 'none'; // Also hide fun facts section on main error
+        }
+
+        function showFunFactsError(message) {
+            funFactsErrorMessage.textContent = message;
+            funFactsErrorMessage.style.display = 'block';
+            funFactsBox.style.display = 'none';
+        }
+        
+        function clearAllResults() {
+            analysisResult.textContent = 'Results will appear here...';
+            errorMessage.style.display = 'none';
+            loadingIndicator.style.display = 'none';
+            clearFunFacts();
+            funFactsContainer.style.display = 'none';
+            lastAnalysisSubject = "";
+        }
+
+        function clearFunFacts() {
+            funFactsResult.textContent = '';
+            funFactsErrorMessage.style.display = 'none';
+            funFactsLoadingIndicator.style.display = 'none';
+            funFactsBox.style.display = 'none';
+            getFunFactsButton.disabled = true;
+        }
+
+
+        // Initial setup
+        cameraFeed.style.display = 'none'; 
+        imagePreview.style.display = 'block'; 
+        imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Use+Camera+or+Upload';
+        clearAllResults(); // Ensure clean state on load
+
+    </script>
+</body>
+</html>
